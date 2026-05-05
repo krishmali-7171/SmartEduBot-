@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SmartEduBot - Login</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+</head>
+<body class="login-body">
+    <div class="login-container">
+        <div class="login-card">
+            <img src="logo.png" alt="Placement Prep Logo" class="app-logo">
+            <h1>SmartEduBot</h1>
+            <p>An AI-Powered Context-Aware College and Placement Assistance Chatbot.</p>
+            <div id="errorBox" style="color: #ff6b6b; font-size: 14px; margin-bottom: 10px; display: none;"></div>
+            <form id="loginForm">
+                <div class="input-group">
+                    <label for="username">Username</label>
+                    <input type="text" id="username" placeholder="e.g. johndoe" required autocomplete="off">
+                </div>
+                <div class="input-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" placeholder="••••••••" required>
+                </div>
+                <button type="submit" class="btn-primary" id="submitBtn">Login</button>
+            </form>
+            <p style="margin-top: 15px; font-size: 14px;">
+                <a href="#" id="toggleMode" style="color: var(--primary-color); text-decoration: none;">Need an account? Register here</a>
+            </p>
+        </div>
+    </div>
+    <script src="login.js"></script>
+</body>
+</html>

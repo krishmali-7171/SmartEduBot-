@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SmartEduBot - Chat</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="chat-body">
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <img src="logo.png" alt="Logo" class="sidebar-logo">
+                <h2>SmartEduBot</h2>
+                <button id="closeSidebarBtn" class="mobile-only-btn"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            
+            <div class="new-chat-btn" id="newChatBtn">
+                <i class="fa-solid fa-plus"></i> New Chat
+            </div>
+            
+            <div class="sidebar-menu">
+                <p class="menu-label">Suggestions</p>
+                <div class="suggestion-item" data-prompt="Ask me a DSA question about arrays.">
+                    <i class="fa-solid fa-code"></i> DSA Practice
+                </div>
+                <div class="suggestion-item" data-prompt="Give me an aptitude question on time and work.">
+                    <i class="fa-solid fa-calculator"></i> Aptitude Test
+                </div>
+                <div class="suggestion-item" data-prompt="I want to do a mock HR interview. Ask me the first question.">
+                    <i class="fa-solid fa-user-tie"></i> Mock Interview
+                </div>
+            </div>
+
+            <div class="sidebar-menu history-section">
+                <p class="menu-label">Recent Chats</p>
+                <div id="historyList" class="history-list">
+                    <!-- Previous sessions will appear here -->
+                </div>
+            </div>
+
+            <div class="user-profile" id="userProfileBtn" style="cursor:pointer;" title="View Profile">
+                <div class="avatar"><i class="fa-solid fa-user"></i></div>
+                <div class="username" id="displayUsername">User</div>
+                <i class="fa-solid fa-right-from-bracket logout-icon" id="logoutBtn" title="Logout"></i>
+            </div>
+        </aside>
+
+        <!-- Main Chat Area -->
+        <main class="chat-main">
+            <header class="chat-header">
+                <button id="hamburgerBtn" class="hamburger-btn"><i class="fa-solid fa-bars"></i></button>
+                <h3>SmartEduBot Assistant</h3>
+                <div style="width: 20px;"></div> <!-- Spacer -->
+            </header>
+
+            <div class="chat-container" id="chatContainer">
+                <!-- Messages will appear here -->
+                <div class="message bot-message">
+                    <div class="message-content">
+                        <div class="avatar bot-avatar"><i class="fa-solid fa-robot"></i></div>
+                        <div class="text">Hello! I'm SmartEduBot, your College and Placement Assistance Chatbot. How can I help you today? We can practice DSA, Aptitude, or do a mock HR interview.</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="input-area">
+                <form id="chatForm" class="chat-form">
+                    <div class="input-wrapper">
+                        <textarea id="messageInput" placeholder="Type your message here..." rows="1"></textarea>
+                        <button type="submit" id="sendBtn" class="send-btn" disabled>
+                            <i class="fa-solid fa-paper-plane"></i>
+                        </button>
+                    </div>
+                    <div class="footer-text">AI can make mistakes. Consider verifying important information.</div>
+                </form>
+            </div>
+        </main>
+    </div>
+
+    <!-- Profile Modal -->
+    <div id="profileModal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal" id="closeProfileModal">&times;</span>
+            <div style="text-align:center;">
+                <div class="avatar" style="width:60px; height:60px; font-size:30px; margin: 0 auto 15px;"><i class="fa-solid fa-user"></i></div>
+                <h2>Your Profile</h2>
+            </div>
+            <div class="profile-stats">
+                <div class="stat-box">
+                    <i class="fa-solid fa-at"></i>
+                    <h3 id="profUsername">User</h3>
+                    <p>Username</p>
+                </div>
+                <div class="stat-box">
+                    <i class="fa-solid fa-message"></i>
+                    <h3 id="profMessages">0</h3>
+                    <p>Total Messages</p>
+                </div>
+                <div class="stat-box">
+                    <i class="fa-solid fa-folder-open"></i>
+                    <h3 id="profSessions">0</h3>
+                    <p>Total Sessions</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
