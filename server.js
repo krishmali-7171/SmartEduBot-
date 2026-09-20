@@ -27,11 +27,76 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// OpenAI config (GitHub Models / Azure AI)
-const openai = new OpenAI({
-  baseURL: process.env.OPENAI_BASE_URL || 'https://models.inference.ai.azure.com',
-  apiKey: process.env.GITHUB_TOKEN || process.env.OPENAI_API_KEY || 'dummy-key'
-});
+async function getAIResponse(messages) {
+  const token = process.env.GITHUB_TOKEN || process.env.OPENAI_API_KEY;
+  if (!token || token === 'dummy-key') {
+    return "AI Bot Configuration Note: Please verify your GITHUB_TOKEN or OPENAI_API_KEY environment variable in Vercel project settings.";
+  }
+
+  // Primary: GitHub Models via Azure AI inference endpoint
+  try {
+    const endpoint = process.env.OPENAI_BASE_URL 
+      ? (process.env.OPENAI_BASE_URL.endsWith('/chat/completions') ? process.env.OPENAI_BASE_URL : `${process.env.OPENAI_BASE_URL}/chat/completions`)
+      : "https://models.inference.ai.azure.com/chat/completions";
+
+    const res = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        messages,
+        model: process.env.AI_MODEL || "gpt-4o-mini",
+        temperature: 1.0,
+        max_tokens: 1000
+      })
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      if (data.choices && data.choices[0] && data.choices[0].message) {
+        return data.choices[0].message.content;
+      }
+    } else {
+      const errText = await res.text();
+      console.error("GitHub Models Azure AI status:", res.status, errText);
+    }
+  } catch (err) {
+    console.error("GitHub Models Azure AI fetch error:", err.message);
+  }
+
+  // Secondary: Standard OpenAI API fallback
+  try {
+    const res = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        messages,
+        model: "gpt-4o-mini",
+        temperature: 1.0,
+        max_tokens: 1000
+      })
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      if (data.choices && data.choices[0] && data.choices[0].message) {
+        return data.choices[0].message.content;
+      }
+    } else {
+      const errText = await res.text();
+      console.error("OpenAI API status:", res.status, errText);
+    }
+  } catch (err) {
+    console.error("OpenAI API fetch error:", err.message);
+  }
+
+  return "I'm SmartEduBot! I'm currently having trouble reaching the AI service. Please verify that your GITHUB_TOKEN has access to GitHub Models or check your Vercel Environment Variables.";
+}
 
 const SYSTEM_PROMPT = `You are SmartEduBot, an AI-Powered Context-Aware College and Placement Assistance Chatbot.
 Help students with DSA, aptitude, and interviews.
@@ -287,15 +352,7 @@ app.post('/api/chat', authenticateToken, async (req, res) => {
       ...(previousChats || []).map(c => ({ role: c.role, content: c.content }))
     ];
 
-    const response = await openai.chat.completions.create({
-      model: process.env.AI_MODEL || 'gpt-4o-mini',
-      messages,
-      temperature: 1.0,
-      top_p: 1.0,
-      max_tokens: 1000,
-    });
-
-    const botReply = response.choices[0].message.content;
+    const botReply = await getAIResponse(messages);
 
     await dbRun('INSERT INTO messages (session_id, role, content) VALUES (?, ?, ?)', [sessionId, 'assistant', botReply]);
 
