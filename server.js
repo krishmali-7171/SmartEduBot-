@@ -219,11 +219,15 @@ app.post('/api/chat', authenticateToken, async (req, res) => {
   }
 });
 
-// 🚀 START SERVER
-initDB().then(() => {
+// START SERVER 
+initDB().catch(err => {
+  console.error("Failed to initialize database:", err);
+});
+
+if (process.env.NODE_ENV !== 'production') {
   app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
   });
-}).catch(err => {
-  console.error("Failed to initialize database:", err);
-});
+}
+
+module.exports = app;
