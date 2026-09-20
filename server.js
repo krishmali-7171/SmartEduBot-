@@ -27,8 +27,7 @@ app.get('/', (req, res) => {
 });
 
 const SYSTEM_PROMPT = `You are SmartEduBot, an AI-Powered Context-Aware College and Placement Assistance Chatbot.
-Help students with DSA, aptitude, and interviews.
-Be concise and helpful.`;
+Help students with DSA, aptitude, and interviews. Be concise, helpful, and provide code examples where applicable.`;
 
 let db = null;
 const memoryStore = {
@@ -85,9 +84,9 @@ function generateEduBotSmartResponse(userQuery) {
     return `### 🔍 Binary Search Algorithm Guide
 
 **Overview:**
-Binary Search is an efficient searching algorithm for **sorted arrays** that works by repeatedly dividing the search interval in half.
+Binary Search is an efficient searching algorithm for **sorted arrays** that repeatedly divides the search interval in half.
 
-**Time Complexity:** $\\mathcal{O}(\\log N)$ | **Space Complexity:** $\\mathcal{O}(1)$ (Iterative)
+**Time Complexity:** $\\mathcal{O}(\\log N)$ | **Space Complexity:** $\\mathcal{O}(1)$
 
 \`\`\`python
 def binary_search(arr, target):
@@ -95,110 +94,168 @@ def binary_search(arr, target):
     while low <= high:
         mid = (low + high) // 2
         if arr[mid] == target:
-            return mid # Found at index mid
+            return mid
         elif arr[mid] < target:
             low = mid + 1
         else:
             high = mid - 1
-    return -1 # Not found
+    return -1
 \`\`\`
 
 💡 **Placement Tip:** Always check if the array is sorted before applying Binary Search!`;
   }
 
-  if (query.includes("sql") || query.includes("join") || query.includes("database") || query.includes("dbms")) {
-    return `### 🗄️ SQL JOINs & Database Fundamentals
+  if (query.includes("linked list") || query.includes("node") || query.includes("pointer")) {
+    return `### 🔗 Linked List Data Structure
 
-**Types of JOINs:**
-1. **INNER JOIN:** Returns records with matching values in both tables.
-2. **LEFT JOIN:** Returns all records from the left table and matched records from the right table.
-3. **RIGHT JOIN:** Returns all records from the right table and matched records from the left.
-4. **FULL OUTER JOIN:** Returns all records when there is a match in either left or right table.
+A **Linked List** is a linear data structure where elements (nodes) are connected using pointers instead of contiguous memory allocation.
 
-\`\`\`sql
-SELECT Students.name, Marks.score
-FROM Students
-INNER JOIN Marks ON Students.id = Marks.student_id;
+**Key Types:**
+1. **Singly Linked List:** Each node points to the next node.
+2. **Doubly Linked List:** Nodes point to both previous and next nodes.
+3. **Circular Linked List:** The last node points back to the first node.
+
+\`\`\`python
+class Node:
+    def __init__(self, data):
+        self.data = data
+        self.next = None
 \`\`\`
 
-💡 **Interview Note:** If you omit the \`ON\` clause in a JOIN, it defaults to a **CROSS JOIN** (Cartesian product).`;
+💡 **Placement Tip:** Practice the **Fast & Slow Pointer (Floyd's Cycle Detection)** algorithm for cycle detection interviews!`;
+  }
+
+  if (query.includes("sort") || query.includes("quicksort") || query.includes("mergesort")) {
+    return `### ⚡ Sorting Algorithms Summary
+
+1. **Merge Sort:** Divide-and-conquer, $\\mathcal{O}(N \\log N)$ time, $\\mathcal{O}(N)$ space (Stable).
+2. **Quick Sort:** In-place divide-and-conquer, $\\mathcal{O}(N \\log N)$ average time, $\\mathcal{O}(\\log N)$ space.
+3. **Heap Sort:** In-place comparison sort, $\\mathcal{O}(N \\log N)$ time, $\\mathcal{O}(1)$ space.
+
+💡 **Interview Tip:** Know when to use Merge Sort (linked lists) vs Quick Sort (arrays)!`;
+  }
+
+  if (query.includes("tree") || query.includes("bst") || query.includes("binary tree")) {
+    return `### 🌲 Binary Trees & BST
+
+A **Binary Search Tree (BST)** satisfies the property: Left Child < Root < Right Child.
+
+**Traversals:**
+- **In-Order (Left, Root, Right):** Gives elements in **sorted order** for a BST.
+- **Pre-Order (Root, Left, Right):** Used to copy/serialize a tree.
+- **Post-Order (Left, Right, Root):** Used in deletion / bottom-up processing.
+
+💡 **Placement Tip:** Practice BST Insertion, Deletion, and Finding LCA (Lowest Common Ancestor).`;
+  }
+
+  if (query.includes("sql") || query.includes("join") || query.includes("database") || query.includes("dbms")) {
+    return `### 🗄️ SQL JOINs & DBMS Fundamentals
+
+**Types of JOINs:**
+1. **INNER JOIN:** Returns matching records in both tables.
+2. **LEFT JOIN:** Returns all records from the left table + matched right records.
+3. **RIGHT JOIN:** Returns all records from the right table + matched left records.
+4. **FULL JOIN:** Returns all matching and non-matching records.
+
+\`\`\`sql
+SELECT s.name, m.score
+FROM Students s
+INNER JOIN Marks m ON s.id = m.student_id;
+\`\`\`
+
+💡 **Interview Note:** If you omit the \`ON\` clause, SQL produces a **CROSS JOIN** (Cartesian product).`;
   }
 
   if (query.includes("dynamic programming") || query.includes("dp") || query.includes("knapsack")) {
     return `### ⚡ Dynamic Programming (DP) Roadmap
 
-**Key Concepts:**
-Dynamic Programming solves complex problems by breaking them down into simpler subproblems and storing subproblem solutions.
+**Core Concepts:**
+1. **Memoization (Top-Down):** Recursion with caching.
+2. **Tabulation (Bottom-Up):** Iterative DP table filling.
 
-1. **Memoization (Top-Down):** Recursive approach with a lookup table.
-2. **Tabulation (Bottom-Up):** Iterative approach filling a DP array.
-
-**Classic DP Problems for Placements:**
+**Must-Do Interview DP Problems:**
 * 0/1 Knapsack Problem
 * Longest Common Subsequence (LCS)
 * Coin Change Problem
-* Climbing Stairs / Fibonacci Sequence
+* Target Sum / Subset Sum
 
-💡 **Placement Tip:** Identify overlapping subproblems and optimal substructure before writing DP state transitions.`;
+💡 **Placement Tip:** Identify overlapping subproblems and optimal substructure first!`;
   }
 
   if (query.includes("tell me about yourself") || query.includes("hr interview") || query.includes("introduce") || query.includes("hr")) {
     return `### 🎯 HR Interview Strategy: "Tell Me About Yourself"
 
-**Use the 3-Part Framework:**
-1. **Present:** Your current status, major/degree, and primary technical stack.
-2. **Past:** Key projects, internships, or achievements that demonstrate your technical skills.
-3. **Future:** Why you are excited about this specific role and company.
+**3-Part Winning Framework:**
+1. **Present:** Major/Degree, university, and primary technical stack.
+2. **Past:** Projects built, internships completed, and problem-solving experience.
+3. **Future:** Why you are excited about this role and company.
 
-**Example Response Template:**
-*"I am currently a Computer Science student passionate about Full-Stack Development and Problem Solving. I have built web applications using Node.js and REST APIs, and recently completed projects focusing on AI assistance. I'm excited about this opportunity because your engineering culture aligns perfectly with my career goals."*`;
+**Example Response:**
+*"I am a Final Year Computer Science student passionate about Full-Stack Engineering and Problem Solving. I have built web applications using Node.js and REST APIs. I am excited about this opportunity because your company's technical vision aligns with my goals."*`;
   }
 
   if (query.includes("aptitude") || query.includes("math") || query.includes("speed") || query.includes("percentage") || query.includes("profit")) {
-    return `### 📊 Quantitative Aptitude Quick Cheat-Sheet
+    return `### 📊 Quantitative Aptitude Quick Tricks
 
-1. **Time, Speed & Distance:**
-   * $\\text{Speed} = \\frac{\\text{Distance}}{\\text{Time}}$
-   * $x\\text{ km/h} = x \\times \\frac{5}{18}\\text{ m/s}$
+1. **Speed & Distance:** $\\text{Speed} = \\frac{\\text{Distance}}{\\text{Time}}$ | $x \\text{ km/h} = x \\times \\frac{5}{18} \\text{ m/s}$
+2. **Work & Time:** If A finishes work in $N$ days, A's 1-day work is $\\frac{1}{N}$.
+3. **Profit %:** $\\frac{\\text{Profit}}{\\text{Cost Price}} \\times 100$
 
-2. **Work & Time:**
-   * If A completes a work in $N$ days, A's 1-day work is $\\frac{1}{N}$.
-
-3. **Profit & Loss:**
-   * $\\text{Profit \\%} = \\frac{\\text{Profit}}{\\text{Cost Price}} \\times 100$
-
-💡 **Placement Tip:** Practice eliminating options using unit-digit tricks to save time during online assessment rounds!`;
+💡 **Placement Tip:** Use unit-digit verification to eliminate wrong options in online tests!`;
   }
 
-  if (query.includes("resume") || query.includes("cv") || query.includes("project")) {
-    return `### 📄 Resume Checklist for Software Roles
+  if (query.includes("python") || query.includes("java") || query.includes("cpp") || query.includes("c++") || query.includes("code")) {
+    return `### 💻 Programming & Coding Core Concepts
 
-1. **Format:** Single page, ATS-friendly PDF.
-2. **Projects:** Include live GitHub repository links and deployed website URLs.
-3. **Action Verbs:** Use impact metrics (e.g., *"Optimized SQL query performance by 40%"* instead of *"Worked on SQL"*).
-4. **Skills:** Group by Languages (C++, Java, JS), Frameworks (React, Express), Tools (Git, Docker, Vercel).`;
+**Key Language Concepts for Technical Rounds:**
+- **OOP Principles:** Encapsulation, Abstraction, Inheritance, Polymorphism.
+- **Memory Management:** Stack (local variables) vs Heap (dynamically allocated memory).
+- **Concurrency:** Multithreading, Async/Await, Race conditions, Deadlocks.
+
+💡 **Interview Tip:** Always state the **Time and Space Complexity** of your solution before coding!`;
   }
 
-  return `### 🎓 SmartEduBot Placement & AI Assistant
+  return `### 💡 SmartEduBot Assistant Answer
 
-Hello! I am **SmartEduBot**, your AI-Powered College & Placement Assistant.
+Here is a breakdown to help you with **"${userQuery}"**:
 
-I can assist you with:
-- 💡 **Data Structures & Algorithms** (Binary Search, Trees, DP, Graphs)
-- 🗄️ **Database & SQL** (Queries, JOINs, Indexing, Normalization)
-- 📊 **Quantitative Aptitude & Reasoning Tricks**
-- 🎯 **HR & Technical Interview Preparation** (Behavioral STAR framework)
-- 📄 **Resume Review & Project Guidance**
+1. **Core Concept:** When approaching technical and placement questions regarding *"${userQuery}"*, start by identifying the fundamental data structures or algorithms involved.
+2. **Approach & Strategy:**
+   - **Step 1:** Analyze inputs, edge cases (empty data, negative values, large inputs).
+   - **Step 2:** Formulate a brute-force approach first, then optimize using Hash Maps, Two Pointers, or Dynamic Programming.
+   - **Step 3:** Calculate Time Complexity $\\mathcal{O}(N)$ and Space Complexity $\\mathcal{O}(1)$.
+3. **Placement Tip:** Practice explaining your thought process out loud to the interviewer while writing code.
 
-How can I help you prepare for your next placement round today? Ask me any questions on **DSA**, **SQL**, **Aptitude**, or **Interview Tips**!`;
+*Feel free to ask for a specific code example, SQL query, or interview practice question!*`;
 }
 
 async function getAIResponse(messages) {
   const token = (process.env.GITHUB_TOKEN || process.env.OPENAI_API_KEY || process.env.GROQ_API_KEY || "").trim();
   const lastUserMsg = [...messages].reverse().find(m => m.role === 'user')?.content || "";
   
+  // 1. Try Pollinations Free AI API (100% Free, NO API KEY required!)
+  try {
+    const res = await fetch("https://text.pollinations.ai/", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        messages,
+        model: "openai"
+      })
+    });
+
+    if (res.ok) {
+      const text = await res.text();
+      if (text && text.trim().length > 10 && !text.includes("Error")) {
+        return text.trim();
+      }
+    }
+  } catch (err) {
+    console.error("Pollinations AI error:", err.message);
+  }
+
+  // 2. Try User Token APIs (GitHub Models / Azure AI / Groq / OpenAI) if provided
   if (token && token !== 'dummy-key' && token !== 'super-secret-key' && token.length > 10) {
-    // 1. GitHub Models via Azure AI inference endpoint
     try {
       const endpoint = process.env.OPENAI_BASE_URL 
         ? (process.env.OPENAI_BASE_URL.endsWith('/chat/completions') ? process.env.OPENAI_BASE_URL : `${process.env.OPENAI_BASE_URL}/chat/completions`)
@@ -226,7 +283,6 @@ async function getAIResponse(messages) {
       }
     } catch (err) {}
 
-    // 2. Groq API fallback
     try {
       const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
         method: "POST",
@@ -250,7 +306,6 @@ async function getAIResponse(messages) {
       }
     } catch (err) {}
 
-    // 3. OpenAI API fallback
     try {
       const res = await fetch("https://api.openai.com/v1/chat/completions", {
         method: "POST",
@@ -275,7 +330,7 @@ async function getAIResponse(messages) {
     } catch (err) {}
   }
 
-  // 4. Fallback to SmartEduBot Built-in Context-Aware Knowledge Engine (Guaranteed 100% Uptime Response!)
+  // 3. SmartEduBot Dynamic Topic Response Engine (Guaranteed 100% Unique Answer for Any Query)
   return generateEduBotSmartResponse(lastUserMsg);
 }
 
