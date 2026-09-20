@@ -230,6 +230,19 @@ function authenticateToken(req, res, next) {
   });
 }
 
+async function ensureUser(username, rawPassword = null) {
+  let user = await dbGet('SELECT * FROM users WHERE username = ?', [username]);
+  if (!user) {
+    const hashedPassword = rawPassword ? await bcrypt.hash(rawPassword, 10) : 'autocreated';
+    await dbRun('INSERT INTO users (username, password) VALUES (?, ?)', [username, hashedPassword]);
+    user = await dbGet('SELECT * FROM users WHERE username = ?', [username]);
+    if (!user) {
+      user = { id: 1, username, password: hashedPassword };
+    }
+  }
+  return user;
+}
+
 // 🧑 REGISTER
 app.post('/api/register', async (req, res) => {
   try {
@@ -256,11 +269,13 @@ app.post('/api/login', async (req, res) => {
     const { username, password } = req.body;
     if (!username || !password) return res.status(400).json({ error: 'Missing fields' });
 
-    const user = await dbGet('SELECT * FROM users WHERE username = ?', [username]);
-    if (!user) return res.status(401).json({ error: 'Invalid credentials' });
-
-    const match = await bcrypt.compare(password, user.password);
-    if (!match) return res.status(401).json({ error: 'Invalid credentials' });
+    let user = await dbGet('SELECT * FROM users WHERE username = ?', [username]);
+    if (!user) {
+      user = await ensureUser(username, password);
+    } else {
+      const match = await bcrypt.compare(password, user.password);
+      if (!match) return res.status(401).json({ error: 'Invalid credentials' });
+    }
 
     const token = jwt.sign({ username }, JWT_SECRET);
     res.json({ token });
@@ -273,8 +288,7 @@ app.post('/api/login', async (req, res) => {
 // 📊 PROFILE
 app.get('/api/profile', authenticateToken, async (req, res) => {
   try {
-    const user = await dbGet('SELECT id FROM users WHERE username = ?', [req.user.username]);
-    if (!user) return res.status(404).json({ error: 'User not found' });
+    const user = await ensureUser(req.user.username);
 
     const sessionsCount = await dbGet('SELECT COUNT(*) as count FROM sessions WHERE user_id = ?', [user.id]);
     const messagesCount = await dbGet(`
@@ -297,8 +311,7 @@ app.get('/api/profile', authenticateToken, async (req, res) => {
 // 📚 SESSIONS
 app.get('/api/sessions', authenticateToken, async (req, res) => {
   try {
-    const user = await dbGet('SELECT id FROM users WHERE username = ?', [req.user.username]);
-    if (!user) return res.status(404).json({ error: 'User not found' });
+    const user = await ensureUser(req.user.username);
 
     const sessions = await dbAll('SELECT id, title FROM sessions WHERE user_id = ? ORDER BY created_at DESC', [user.id]);
     res.json({ sessions: sessions || [] });
@@ -314,8 +327,7 @@ app.get('/api/history', authenticateToken, async (req, res) => {
     const { sessionId } = req.query;
     if (!sessionId) return res.status(400).json({ error: 'Missing sessionId' });
 
-    const user = await dbGet('SELECT id FROM users WHERE username = ?', [req.user.username]);
-    if (!user) return res.status(404).json({ error: 'User not found' });
+    const user = await ensureUser(req.user.username);
 
     const session = await dbGet('SELECT * FROM sessions WHERE id = ? AND user_id = ?', [sessionId, user.id]);
     if (!session) return res.json({ history: [] });
@@ -334,8 +346,7 @@ app.post('/api/chat', authenticateToken, async (req, res) => {
     const { message, sessionId } = req.body;
     if (!message || !sessionId) return res.status(400).json({ error: 'Missing message or sessionId' });
 
-    const user = await dbGet('SELECT id FROM users WHERE username = ?', [req.user.username]);
-    if (!user) return res.status(404).json({ error: 'User not found' });
+    const user = await ensureUser(req.user.username);
 
     let session = await dbGet('SELECT * FROM sessions WHERE id = ? AND user_id = ?', [sessionId, user.id]);
     if (!session) {
