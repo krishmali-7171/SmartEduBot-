@@ -28,12 +28,13 @@ app.get('/', (req, res) => {
 });
 
 async function getAIResponse(messages) {
-  const token = process.env.GITHUB_TOKEN || process.env.OPENAI_API_KEY;
+  const token = (process.env.GITHUB_TOKEN || process.env.OPENAI_API_KEY || process.env.GROQ_API_KEY || "").trim();
+  
   if (!token || token === 'dummy-key') {
     return "AI Bot Configuration Note: Please verify your GITHUB_TOKEN or OPENAI_API_KEY environment variable in Vercel project settings.";
   }
 
-  // Primary: GitHub Models via Azure AI inference endpoint
+  // 1. Primary: GitHub Models via Azure AI inference endpoint
   try {
     const endpoint = process.env.OPENAI_BASE_URL 
       ? (process.env.OPENAI_BASE_URL.endsWith('/chat/completions') ? process.env.OPENAI_BASE_URL : `${process.env.OPENAI_BASE_URL}/chat/completions`)
@@ -48,7 +49,7 @@ async function getAIResponse(messages) {
       body: JSON.stringify({
         messages,
         model: process.env.AI_MODEL || "gpt-4o-mini",
-        temperature: 1.0,
+        temperature: 0.7,
         max_tokens: 1000
       })
     });
@@ -66,7 +67,55 @@ async function getAIResponse(messages) {
     console.error("GitHub Models Azure AI fetch error:", err.message);
   }
 
-  // Secondary: Standard OpenAI API fallback
+  // 2. Groq API fallback (Free instant AI models)
+  try {
+    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        messages,
+        model: "llama-3.1-8b-instant",
+        temperature: 0.7,
+        max_tokens: 1000
+      })
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      if (data.choices && data.choices[0] && data.choices[0].message) {
+        return data.choices[0].message.content;
+      }
+    }
+  } catch (err) {}
+
+  // 3. OpenRouter API fallback
+  try {
+    const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        messages,
+        model: "google/gemini-2.0-flash-lite-001:free",
+        temperature: 0.7,
+        max_tokens: 1000
+      })
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      if (data.choices && data.choices[0] && data.choices[0].message) {
+        return data.choices[0].message.content;
+      }
+    }
+  } catch (err) {}
+
+  // 4. Standard OpenAI API fallback
   try {
     const res = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
@@ -77,7 +126,7 @@ async function getAIResponse(messages) {
       body: JSON.stringify({
         messages,
         model: "gpt-4o-mini",
-        temperature: 1.0,
+        temperature: 0.7,
         max_tokens: 1000
       })
     });
@@ -95,7 +144,7 @@ async function getAIResponse(messages) {
     console.error("OpenAI API fetch error:", err.message);
   }
 
-  return "I'm SmartEduBot! I'm currently having trouble reaching the AI service. Please verify that your GITHUB_TOKEN has access to GitHub Models or check your Vercel Environment Variables.";
+  return "SmartEduBot AI Notice: The AI service could not authenticate with your current token. Please verify that your GITHUB_TOKEN or OPENAI_API_KEY in Vercel Environment Variables is valid.";
 }
 
 const SYSTEM_PROMPT = `You are SmartEduBot, an AI-Powered Context-Aware College and Placement Assistance Chatbot.
