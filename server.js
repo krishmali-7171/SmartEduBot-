@@ -5,8 +5,14 @@ const cors = require('cors');
 const { OpenAI } = require('openai');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
-const sqlite3 = require('sqlite3');
-const { open } = require('sqlite');
+
+let sqlite3, open;
+try {
+  sqlite3 = require('sqlite3');
+  open = require('sqlite').open;
+} catch (e) {
+  console.warn("sqlite3 native module not loaded, using in-memory database fallback:", e.message);
+}
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -31,11 +37,16 @@ const SYSTEM_PROMPT = `You are SmartEduBot, an AI-Powered Context-Aware College 
 Help students with DSA, aptitude, and interviews.
 Be concise and helpful.`;
 
-let db;
+let db = null;
+const memoryStore = {
+  users: [],
+  sessions: [],
+  messages: []
+};
 
 // Initialize Database
 async function initDB() {
-  if (db) return db;
+  if (db || !sqlite3 || !open) return;
   try {
     const dbPath = process.env.VERCEL || process.env.NODE_ENV === 'production' 
       ? '/tmp/database.sqlite' 
@@ -68,14 +79,73 @@ async function initDB() {
         FOREIGN KEY(session_id) REFERENCES sessions(id)
       );
     `);
-    return db;
   } catch (err) {
-    console.error("Failed to initialize DB:", err);
+    console.error("DB init failed, using in-memory store fallback:", err.message);
+    db = null;
   }
 }
 
+async function dbGet(sql, params = []) {
+  if (db) return await db.get(sql, params);
+  
+  if (sql.includes('FROM users WHERE username = ?')) {
+    return memoryStore.users.find(u => u.username === params[0]) || null;
+  }
+  if (sql.includes('SELECT id FROM users WHERE username = ?')) {
+    const u = memoryStore.users.find(u => u.username === params[0]);
+    return u ? { id: u.id } : null;
+  }
+  if (sql.includes('SELECT COUNT(*) as count FROM sessions WHERE user_id = ?')) {
+    const count = memoryStore.sessions.filter(s => s.user_id === params[0]).length;
+    return { count };
+  }
+  if (sql.includes('SELECT COUNT(*) as count FROM messages')) {
+    const userSessionIds = memoryStore.sessions.filter(s => s.user_id === params[0]).map(s => s.id);
+    const count = memoryStore.messages.filter(m => userSessionIds.includes(m.session_id)).length;
+    return { count };
+  }
+  if (sql.includes('SELECT * FROM sessions WHERE id = ? AND user_id = ?')) {
+    return memoryStore.sessions.find(s => s.id === params[0] && s.user_id === params[1]) || null;
+  }
+  return null;
+}
+
+async function dbRun(sql, params = []) {
+  if (db) return await db.run(sql, params);
+
+  if (sql.includes('INSERT INTO users')) {
+    const id = memoryStore.users.length + 1;
+    memoryStore.users.push({ id, username: params[0], password: params[1] });
+    return { lastID: id };
+  }
+  if (sql.includes('INSERT INTO sessions')) {
+    memoryStore.sessions.push({ id: params[0], user_id: params[1], title: params[2], created_at: new Date() });
+    return {};
+  }
+  if (sql.includes('INSERT INTO messages')) {
+    memoryStore.messages.push({ session_id: params[0], role: params[1], content: params[2], timestamp: new Date() });
+    return {};
+  }
+}
+
+async function dbAll(sql, params = []) {
+  if (db) return await db.all(sql, params);
+
+  if (sql.includes('SELECT id, title FROM sessions')) {
+    return memoryStore.sessions
+      .filter(s => s.user_id === params[0])
+      .map(s => ({ id: s.id, title: s.title }));
+  }
+  if (sql.includes('SELECT role, content FROM messages WHERE session_id = ?')) {
+    return memoryStore.messages
+      .filter(m => m.session_id === params[0])
+      .map(m => ({ role: m.role, content: m.content }));
+  }
+  return [];
+}
+
 app.use(async (req, res, next) => {
-  if (!db) {
+  if (!db && sqlite3 && open) {
     await initDB();
   }
   next();
@@ -101,16 +171,16 @@ app.post('/api/register', async (req, res) => {
     const { username, password } = req.body;
     if (!username || !password) return res.status(400).json({ error: 'Missing fields' });
 
-    const existingUser = await db.get('SELECT * FROM users WHERE username = ?', [username]);
+    const existingUser = await dbGet('SELECT * FROM users WHERE username = ?', [username]);
     if (existingUser) return res.status(400).json({ error: 'User exists' });
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    await db.run('INSERT INTO users (username, password) VALUES (?, ?)', [username, hashedPassword]);
+    await dbRun('INSERT INTO users (username, password) VALUES (?, ?)', [username, hashedPassword]);
 
     const token = jwt.sign({ username }, JWT_SECRET);
     res.json({ token });
   } catch (err) {
-    console.error(err);
+    console.error("Register error:", err);
     res.status(500).json({ error: 'Server error' });
   }
 });
@@ -121,7 +191,7 @@ app.post('/api/login', async (req, res) => {
     const { username, password } = req.body;
     if (!username || !password) return res.status(400).json({ error: 'Missing fields' });
 
-    const user = await db.get('SELECT * FROM users WHERE username = ?', [username]);
+    const user = await dbGet('SELECT * FROM users WHERE username = ?', [username]);
     if (!user) return res.status(401).json({ error: 'Invalid credentials' });
 
     const match = await bcrypt.compare(password, user.password);
@@ -130,7 +200,7 @@ app.post('/api/login', async (req, res) => {
     const token = jwt.sign({ username }, JWT_SECRET);
     res.json({ token });
   } catch (err) {
-    console.error(err);
+    console.error("Login error:", err);
     res.status(500).json({ error: 'Server error' });
   }
 });
@@ -138,11 +208,11 @@ app.post('/api/login', async (req, res) => {
 // 📊 PROFILE
 app.get('/api/profile', authenticateToken, async (req, res) => {
   try {
-    const user = await db.get('SELECT id FROM users WHERE username = ?', [req.user.username]);
+    const user = await dbGet('SELECT id FROM users WHERE username = ?', [req.user.username]);
     if (!user) return res.status(404).json({ error: 'User not found' });
 
-    const sessionsCount = await db.get('SELECT COUNT(*) as count FROM sessions WHERE user_id = ?', [user.id]);
-    const messagesCount = await db.get(`
+    const sessionsCount = await dbGet('SELECT COUNT(*) as count FROM sessions WHERE user_id = ?', [user.id]);
+    const messagesCount = await dbGet(`
       SELECT COUNT(*) as count FROM messages 
       JOIN sessions ON messages.session_id = sessions.id 
       WHERE sessions.user_id = ?
@@ -150,11 +220,11 @@ app.get('/api/profile', authenticateToken, async (req, res) => {
 
     res.json({
       username: req.user.username,
-      totalSessions: sessionsCount.count || 0,
-      totalMessages: messagesCount.count || 0
+      totalSessions: sessionsCount ? (sessionsCount.count || 0) : 0,
+      totalMessages: messagesCount ? (messagesCount.count || 0) : 0
     });
   } catch (err) {
-    console.error(err);
+    console.error("Profile error:", err);
     res.status(500).json({ error: 'Server error' });
   }
 });
@@ -162,13 +232,13 @@ app.get('/api/profile', authenticateToken, async (req, res) => {
 // 📚 SESSIONS
 app.get('/api/sessions', authenticateToken, async (req, res) => {
   try {
-    const user = await db.get('SELECT id FROM users WHERE username = ?', [req.user.username]);
+    const user = await dbGet('SELECT id FROM users WHERE username = ?', [req.user.username]);
     if (!user) return res.status(404).json({ error: 'User not found' });
 
-    const sessions = await db.all('SELECT id, title FROM sessions WHERE user_id = ? ORDER BY created_at DESC', [user.id]);
-    res.json({ sessions });
+    const sessions = await dbAll('SELECT id, title FROM sessions WHERE user_id = ? ORDER BY created_at DESC', [user.id]);
+    res.json({ sessions: sessions || [] });
   } catch (err) {
-    console.error(err);
+    console.error("Sessions error:", err);
     res.status(500).json({ error: 'Server error' });
   }
 });
@@ -179,17 +249,16 @@ app.get('/api/history', authenticateToken, async (req, res) => {
     const { sessionId } = req.query;
     if (!sessionId) return res.status(400).json({ error: 'Missing sessionId' });
 
-    const user = await db.get('SELECT id FROM users WHERE username = ?', [req.user.username]);
+    const user = await dbGet('SELECT id FROM users WHERE username = ?', [req.user.username]);
     if (!user) return res.status(404).json({ error: 'User not found' });
 
-    // Verify session belongs to user
-    const session = await db.get('SELECT * FROM sessions WHERE id = ? AND user_id = ?', [sessionId, user.id]);
+    const session = await dbGet('SELECT * FROM sessions WHERE id = ? AND user_id = ?', [sessionId, user.id]);
     if (!session) return res.json({ history: [] });
 
-    const history = await db.all('SELECT role, content FROM messages WHERE session_id = ? ORDER BY timestamp ASC', [sessionId]);
-    res.json({ history });
+    const history = await dbAll('SELECT role, content FROM messages WHERE session_id = ? ORDER BY timestamp ASC', [sessionId]);
+    res.json({ history: history || [] });
   } catch (err) {
-    console.error(err);
+    console.error("History error:", err);
     res.status(500).json({ error: 'Server error' });
   }
 });
@@ -200,25 +269,22 @@ app.post('/api/chat', authenticateToken, async (req, res) => {
     const { message, sessionId } = req.body;
     if (!message || !sessionId) return res.status(400).json({ error: 'Missing message or sessionId' });
 
-    const user = await db.get('SELECT id FROM users WHERE username = ?', [req.user.username]);
+    const user = await dbGet('SELECT id FROM users WHERE username = ?', [req.user.username]);
     if (!user) return res.status(404).json({ error: 'User not found' });
 
-    // Ensure session exists, or create it
-    let session = await db.get('SELECT * FROM sessions WHERE id = ? AND user_id = ?', [sessionId, user.id]);
+    let session = await dbGet('SELECT * FROM sessions WHERE id = ? AND user_id = ?', [sessionId, user.id]);
     if (!session) {
       const title = message.substring(0, 30) + (message.length > 30 ? '...' : '');
-      await db.run('INSERT INTO sessions (id, user_id, title) VALUES (?, ?, ?)', [sessionId, user.id, title]);
+      await dbRun('INSERT INTO sessions (id, user_id, title) VALUES (?, ?, ?)', [sessionId, user.id, title]);
     }
 
-    // Save user message
-    await db.run('INSERT INTO messages (session_id, role, content) VALUES (?, ?, ?)', [sessionId, 'user', message]);
+    await dbRun('INSERT INTO messages (session_id, role, content) VALUES (?, ?, ?)', [sessionId, 'user', message]);
 
-    // Fetch previous context
-    const previousChats = await db.all('SELECT role, content FROM messages WHERE session_id = ? ORDER BY timestamp ASC LIMIT 20', [sessionId]);
+    const previousChats = await dbAll('SELECT role, content FROM messages WHERE session_id = ? ORDER BY timestamp ASC LIMIT 20', [sessionId]);
     
     const messages = [
       { role: 'system', content: SYSTEM_PROMPT },
-      ...previousChats.map(c => ({ role: c.role, content: c.content }))
+      ...(previousChats || []).map(c => ({ role: c.role, content: c.content }))
     ];
 
     const response = await openai.chat.completions.create({
@@ -231,13 +297,12 @@ app.post('/api/chat', authenticateToken, async (req, res) => {
 
     const botReply = response.choices[0].message.content;
 
-    // Save bot reply
-    await db.run('INSERT INTO messages (session_id, role, content) VALUES (?, ?, ?)', [sessionId, 'assistant', botReply]);
+    await dbRun('INSERT INTO messages (session_id, role, content) VALUES (?, ?, ?)', [sessionId, 'assistant', botReply]);
 
     res.json({ response: botReply });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'AI error' });
+    console.error("Chat error:", err);
+    res.status(500).json({ error: 'AI error: ' + (err.message || 'Server error') });
   }
 });
 
