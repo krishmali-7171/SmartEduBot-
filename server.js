@@ -24,7 +24,7 @@ app.get('/', (req, res) => {
 // OpenAI config (GitHub Models)
 const openai = new OpenAI({
   baseURL: 'https://models.github.ai/inference',
-  apiKey: process.env.GITHUB_TOKEN
+  apiKey: process.env.GITHUB_TOKEN || 'dummy-key'
 });
 
 const SYSTEM_PROMPT = `You are SmartEduBot, an AI-Powered Context-Aware College and Placement Assistance Chatbot.
@@ -35,34 +35,51 @@ let db;
 
 // Initialize Database
 async function initDB() {
-  db = await open({
-    filename: './database.sqlite',
-    driver: sqlite3.Database
-  });
+  if (db) return db;
+  try {
+    const dbPath = process.env.VERCEL || process.env.NODE_ENV === 'production' 
+      ? '/tmp/database.sqlite' 
+      : './database.sqlite';
 
-  await db.exec(`
-    CREATE TABLE IF NOT EXISTS users (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      username TEXT UNIQUE,
-      password TEXT
-    );
-    CREATE TABLE IF NOT EXISTS sessions (
-      id TEXT PRIMARY KEY,
-      user_id INTEGER,
-      title TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY(user_id) REFERENCES users(id)
-    );
-    CREATE TABLE IF NOT EXISTS messages (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      session_id TEXT,
-      role TEXT,
-      content TEXT,
-      timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY(session_id) REFERENCES sessions(id)
-    );
-  `);
+    db = await open({
+      filename: dbPath,
+      driver: sqlite3.Database
+    });
+
+    await db.exec(`
+      CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT UNIQUE,
+        password TEXT
+      );
+      CREATE TABLE IF NOT EXISTS sessions (
+        id TEXT PRIMARY KEY,
+        user_id INTEGER,
+        title TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY(user_id) REFERENCES users(id)
+      );
+      CREATE TABLE IF NOT EXISTS messages (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        session_id TEXT,
+        role TEXT,
+        content TEXT,
+        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY(session_id) REFERENCES sessions(id)
+      );
+    `);
+    return db;
+  } catch (err) {
+    console.error("Failed to initialize DB:", err);
+  }
 }
+
+app.use(async (req, res, next) => {
+  if (!db) {
+    await initDB();
+  }
+  next();
+});
 
 // 🔐 AUTH MIDDLEWARE
 function authenticateToken(req, res, next) {
