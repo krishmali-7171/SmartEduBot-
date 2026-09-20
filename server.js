@@ -1,4 +1,5 @@
 require('dotenv').config();
+const path = require('path');
 const express = require('express');
 const cors = require('cors');
 const { OpenAI } = require('openai');
@@ -14,7 +15,11 @@ const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-key';
 
 app.use(cors());
 app.use(express.json());
-app.use(express.static('public'));
+app.use(express.static(path.join(__dirname, 'public')));
+
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
 
 // OpenAI config (GitHub Models)
 const openai = new OpenAI({
