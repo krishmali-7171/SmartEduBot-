@@ -27,10 +27,10 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// OpenAI config (GitHub Models)
+// OpenAI config (GitHub Models / Azure AI)
 const openai = new OpenAI({
-  baseURL: 'https://models.github.ai/inference',
-  apiKey: process.env.GITHUB_TOKEN || 'dummy-key'
+  baseURL: process.env.OPENAI_BASE_URL || 'https://models.inference.ai.azure.com',
+  apiKey: process.env.GITHUB_TOKEN || process.env.OPENAI_API_KEY || 'dummy-key'
 });
 
 const SYSTEM_PROMPT = `You are SmartEduBot, an AI-Powered Context-Aware College and Placement Assistance Chatbot.
@@ -288,7 +288,7 @@ app.post('/api/chat', authenticateToken, async (req, res) => {
     ];
 
     const response = await openai.chat.completions.create({
-      model: 'openai/gpt-4o-mini',
+      model: process.env.AI_MODEL || 'gpt-4o-mini',
       messages,
       temperature: 1.0,
       top_p: 1.0,
